@@ -48,6 +48,8 @@ model User {
   location      String?
   website       String?
   isPublic      Boolean   @default(false)
+  githubId      String?   @unique
+  githubUsername String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

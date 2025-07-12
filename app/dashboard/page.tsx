@@ -18,112 +18,143 @@ import {
   Activity,
   Clock,
   User,
-  Github
+  Github,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 
-interface ActivitySummary {
+interface GitHubActivity {
   id: string;
   type: 'commit' | 'pull_request' | 'issue' | 'star' | 'comment';
-  title: string;
-  description: string;
   repository: string;
-  timestamp: string;
-  impact: 'low' | 'medium' | 'high';
+  title: string;
+  description?: string;
+  url: string;
+  createdAt: string;
 }
 
-interface Stats {
+interface DashboardStats {
   totalCommits: number;
   totalPRs: number;
   totalIssues: number;
   totalStars: number;
   weeklyActivity: number;
   monthlyActivity: number;
+  totalRepositories: number;
+}
+
+interface GitHubUser {
+  login: string;
+  name: string;
+  email: string;
+  avatar_url: string;
+  public_repos: number;
+  followers: number;
+  following: number;
 }
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
-  const [activities, setActivities] = useState<ActivitySummary[]>([]);
-  const [stats, setStats] = useState<Stats>({
+  const [activities, setActivities] = useState<GitHubActivity[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
     totalCommits: 0,
     totalPRs: 0,
     totalIssues: 0,
     totalStars: 0,
     weeklyActivity: 0,
     monthlyActivity: 0,
+    totalRepositories: 0,
   });
+  const [githubUser, setGithubUser] = useState<GitHubUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch GitHub user info and repositories
+      const githubResponse = await fetch('/api/github/sync');
+      if (githubResponse.ok) {
+        const githubData = await githubResponse.json();
+        setGithubUser(githubData.user);
+        setStats(prev => ({
+          ...prev,
+          totalRepositories: githubData.repositories.length
+        }));
+      }
+
+      // Fetch user activities from database
+      const activitiesResponse = await fetch('/api/activities');
+      if (activitiesResponse.ok) {
+        const activitiesData = await activitiesResponse.json();
+        setActivities(activitiesData.activities);
+        
+        // Calculate stats from real activities
+        const now = new Date();
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        const weeklyActivities = activitiesData.activities.filter((activity: GitHubActivity) => 
+          new Date(activity.createdAt) >= weekAgo
+        );
+        const monthlyActivities = activitiesData.activities.filter((activity: GitHubActivity) => 
+          new Date(activity.createdAt) >= monthAgo
+        );
+
+        setStats({
+          totalCommits: activitiesData.activities.filter((a: GitHubActivity) => a.type === 'commit').length,
+          totalPRs: activitiesData.activities.filter((a: GitHubActivity) => a.type === 'pull_request').length,
+          totalIssues: activitiesData.activities.filter((a: GitHubActivity) => a.type === 'issue').length,
+          totalStars: activitiesData.activities.filter((a: GitHubActivity) => a.type === 'star').length,
+          weeklyActivity: weeklyActivities.length,
+          monthlyActivity: monthlyActivities.length,
+          totalRepositories: githubUser?.public_repos || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sync GitHub activities
+  const syncGitHubActivities = async () => {
+    try {
+      setSyncing(true);
+      setError(null);
+
+      const response = await fetch('/api/github/sync', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Refresh dashboard data after sync
+        await fetchDashboardData();
+      } else {
+        throw new Error('Failed to sync activities');
+      }
+    } catch (error) {
+      console.error('Error syncing activities:', error);
+      setError('Failed to sync GitHub activities');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (status === 'authenticated') {
-      setLoading(true);
-      setTimeout(() => {
-        setActivities([
-          {
-            id: '1',
-            type: 'commit',
-            title: 'Added new authentication features',
-            description: 'Implemented OAuth2 flow with GitHub integration',
-            repository: 'github-journal-app',
-            timestamp: '2024-01-15T10:30:00Z',
-            impact: 'high',
-          },
-          {
-            id: '2',
-            type: 'pull_request',
-            title: 'Fix dashboard responsive design',
-            description: 'Improved mobile layout and accessibility',
-            repository: 'github-journal-app',
-            timestamp: '2024-01-14T15:45:00Z',
-            impact: 'medium',
-          },
-          {
-            id: '3',
-            type: 'issue',
-            title: 'Add dark mode support',
-            description: 'Request for dark theme implementation',
-            repository: 'github-journal-app',
-            timestamp: '2024-01-13T09:20:00Z',
-            impact: 'medium',
-          },
-          {
-            id: '4',
-            type: 'star',
-            title: 'Repository starred',
-            description: 'Your repository received a star',
-            repository: 'awesome-project',
-            timestamp: '2024-01-12T14:15:00Z',
-            impact: 'low',
-          },
-          {
-            id: '5',
-            type: 'comment',
-            title: 'Code review comment',
-            description: 'Helpful feedback on PR #123',
-            repository: 'github-journal-app',
-            timestamp: '2024-01-11T11:30:00Z',
-            impact: 'medium',
-          },
-        ]);
-        setStats({
-          totalCommits: 47,
-          totalPRs: 12,
-          totalIssues: 8,
-          totalStars: 23,
-          weeklyActivity: 15,
-          monthlyActivity: 67,
-        });
-        setLoading(false);
-      }, 1000);
+      fetchDashboardData();
     }
   }, [status]);
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      setLoading(false);
-    }
-  }, [status]);
-
-  function getActivityIcon(type: string) {
+  const getActivityIcon = (type: string) => {
     switch (type) {
       case 'commit':
         return <GitBranch className="w-4 h-4" />;
@@ -138,29 +169,45 @@ export default function Dashboard() {
       default:
         return <Activity className="w-4 h-4" />;
     }
-  }
+  };
 
-  function getImpactColor(impact: string) {
-    switch (impact) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'low':
+  const getActivityColor = (type: string) => {
+    switch (type) {
+      case 'commit':
+        return 'bg-blue-100 text-blue-800';
+      case 'pull_request':
         return 'bg-green-100 text-green-800';
+      case 'issue':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'star':
+        return 'bg-purple-100 text-purple-800';
+      case 'comment':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  }
+  };
 
-  function formatDate(dateString: string) {
+  const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit',
+      minute: '2-digit'
     });
-  }
+  };
+
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    return `${Math.floor(diffInSeconds / 2592000)}mo ago`;
+  };
 
   if (status === 'loading' || loading) {
     return (
@@ -204,10 +251,18 @@ export default function Dashboard() {
                 <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
                 <div className="flex items-center space-x-2 text-sm text-gray-500">
                   <Github className="w-4 h-4" />
-                  <span>{session?.user?.name}</span>
+                  <span>{githubUser?.login || session?.user?.name}</span>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
+                <button
+                  onClick={syncGitHubActivities}
+                  disabled={syncing}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                  {syncing ? 'Syncing...' : 'Sync GitHub'}
+                </button>
                 <Link href="/notifications" className="p-2 text-gray-400 hover:text-gray-600">
                   <Bell className="w-5 h-5" />
                 </Link>
@@ -218,7 +273,21 @@ export default function Dashboard() {
             </div>
           </div>
         </header>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Error Alert */}
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex">
+                <AlertCircle className="w-5 h-5 text-red-400" />
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Error</h3>
+                  <p className="text-sm text-red-700 mt-1">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow p-6">
@@ -232,6 +301,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -243,6 +313,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 <div className="p-2 bg-yellow-100 rounded-lg">
@@ -254,18 +325,20 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 <div className="p-2 bg-purple-100 rounded-lg">
                   <Star className="w-6 h-6 text-purple-600" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Stars</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalStars}</p>
+                  <p className="text-sm font-medium text-gray-600">Repositories</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalRepositories}</p>
                 </div>
               </div>
             </div>
           </div>
+
           {/* Activity Overview */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Recent Activities */}
@@ -280,33 +353,44 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="p-6">
-                  <div className="space-y-4">
-                    {activities.map((activity) => (
-                      <div key={activity.id} className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
-                        <div className="flex-shrink-0">
-                          <div className="p-2 bg-white rounded-lg shadow-sm">
-                            {getActivityIcon(activity.type)}
+                  {activities.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500">No activities found</p>
+                      <p className="text-sm text-gray-400 mt-2">Click "Sync GitHub" to load your activities</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {activities.slice(0, 5).map((activity) => (
+                        <div key={activity.id} className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
+                          <div className="flex-shrink-0">
+                            <div className="p-2 bg-white rounded-lg shadow-sm">
+                              {getActivityIcon(activity.type)}
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getActivityColor(activity.type)}`}>
+                                {activity.type}
+                              </span>
+                            </div>
+                            {activity.description && (
+                              <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
+                            )}
+                            <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                              <span>{activity.repository}</span>
+                              <span>{getTimeAgo(activity.createdAt)}</span>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getImpactColor(activity.impact)}`}>
-                              {activity.impact}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
-                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                            <span>{activity.repository}</span>
-                            <span>{formatDate(activity.timestamp)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
+
             {/* Quick Actions & Stats */}
             <div className="space-y-6">
               {/* Quick Actions */}
@@ -335,15 +419,16 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
+
               {/* Weekly Activity */}
               <div className="bg-white rounded-lg shadow">
                 <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">This Week</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Activity Summary</h3>
                 </div>
                 <div className="p-6">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Activities</span>
+                      <span className="text-sm text-gray-600">This Week</span>
                       <span className="text-lg font-semibold text-gray-900">{stats.weeklyActivity}</span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -353,34 +438,50 @@ export default function Dashboard() {
                     <div className="pt-4">
                       <div className="flex items-center space-x-2 text-sm text-gray-500">
                         <TrendingUp className="w-4 h-4" />
-                        <span>Trending up 12% from last week</span>
+                        <span>
+                          {stats.weeklyActivity > 0 ? 'Active this week' : 'No activity this week'}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              {/* Recent Repositories */}
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Recent Repositories</h3>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-sm text-gray-900">github-journal-app</span>
+
+              {/* GitHub Profile */}
+              {githubUser && (
+                <div className="bg-white rounded-lg shadow">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900">GitHub Profile</h3>
+                  </div>
+                  <div className="p-6">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <img 
+                        src={githubUser.avatar_url} 
+                        alt={githubUser.login}
+                        className="w-10 h-10 rounded-full"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{githubUser.name || githubUser.login}</p>
+                        <p className="text-xs text-gray-500">@{githubUser.login}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-sm text-gray-900">awesome-project</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                      <span className="text-sm text-gray-900">react-components</span>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Repositories</span>
+                        <span className="font-medium">{githubUser.public_repos}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Followers</span>
+                        <span className="font-medium">{githubUser.followers}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Following</span>
+                        <span className="font-medium">{githubUser.following}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
