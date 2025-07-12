@@ -7,8 +7,8 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      clientId: process.env.GITHUB_CLIENT_ID || "placeholder",
+      clientSecret: process.env.GITHUB_CLIENT_SECRET || "placeholder",
       authorization: {
         params: {
           scope: "read:user user:email repo",
