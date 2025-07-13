@@ -26,6 +26,8 @@ export default function Navigation() {
     { name: 'Journal', href: '/journal', icon: BookOpen },
     { name: 'Activities', href: '/activities', icon: Activity },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    { name: 'Social', href: '/social', icon: Users },
+    { name: 'Learn', href: '/learn', icon: BookOpen },
     { name: 'Achievements', href: '/achievements', icon: Trophy },
     { name: 'Team', href: '/team', icon: Users },
     { name: 'Blog', href: '/blog', icon: FileText },

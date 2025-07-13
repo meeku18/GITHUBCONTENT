@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
+    // Skip database operations during build time
+    if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+      return NextResponse.json(
+        { error: 'Service temporarily unavailable' },
+        { status: 503 }
+      );
+    }
+
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.id) {
@@ -13,6 +20,9 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Dynamically import prisma to avoid build-time issues
+    const { prisma } = await import('@/lib/prisma');
 
     // Get user's activities from database
     const activities = await prisma.gitHubActivity.findMany({
@@ -26,7 +36,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform activities to match frontend interface
-    const transformedActivities = activities.map(activity => ({
+    const transformedActivities = activities.map((activity: any) => ({
       id: activity.id,
       type: activity.type as 'commit' | 'pull_request' | 'issue' | 'star' | 'comment',
       repository: activity.repository,
