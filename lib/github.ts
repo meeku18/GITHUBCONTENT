@@ -61,6 +61,9 @@ export class GitHubService {
 
   async syncUserActivities() {
     try {
+      // Dynamically import prisma
+      const { prisma } = await import('./prisma');
+      if (!prisma) throw new Error('Database connection not available');
       // Get user's tracked repositories
       const userSettings = await prisma.userSettings.findUnique({
         where: { userId: this.userId }
@@ -212,6 +215,8 @@ export class GitHubService {
   }
 
   private async storeActivities(activities: GitHubActivity[]) {
+    const { prisma } = await import('./prisma');
+    if (!prisma) throw new Error('Database connection not available');
     const existingActivities = await prisma.gitHubActivity.findMany({
       where: { userId: this.userId },
       select: { url: true }

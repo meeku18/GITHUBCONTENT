@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,22 +24,31 @@ export async function POST(request: NextRequest) {
     const event = JSON.parse(body);
     const eventType = request.headers.get('x-github-event');
 
+    // Dynamically import prisma to avoid build-time issues
+    const { prisma } = await import('@/lib/prisma');
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      );
+    }
+
     // Process different GitHub events
     switch (eventType) {
       case 'push':
-        await handlePushEvent(event);
+        await handlePushEvent(event, prisma);
         break;
       case 'pull_request':
-        await handlePullRequestEvent(event);
+        await handlePullRequestEvent(event, prisma);
         break;
       case 'issues':
-        await handleIssuesEvent(event);
+        await handleIssuesEvent(event, prisma);
         break;
       case 'issue_comment':
-        await handleIssueCommentEvent(event);
+        await handleIssueCommentEvent(event, prisma);
         break;
       case 'create':
-        await handleCreateEvent(event);
+        await handleCreateEvent(event, prisma);
         break;
       default:
         console.log(`Unhandled event type: ${eventType}`);
@@ -57,7 +65,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handlePushEvent(event: any) {
+async function handlePushEvent(event: any, prisma: any) {
   const repository = event.repository.full_name;
   const commits = event.commits || [];
   const sender = event.sender;
@@ -103,7 +111,7 @@ async function handlePushEvent(event: any) {
   }
 }
 
-async function handlePullRequestEvent(event: any) {
+async function handlePullRequestEvent(event: any, prisma: any) {
   const repository = event.repository.full_name;
   const pullRequest = event.pull_request;
   const action = event.action;
@@ -143,7 +151,7 @@ async function handlePullRequestEvent(event: any) {
   }
 }
 
-async function handleIssuesEvent(event: any) {
+async function handleIssuesEvent(event: any, prisma: any) {
   const repository = event.repository.full_name;
   const issue = event.issue;
   const action = event.action;
@@ -182,7 +190,7 @@ async function handleIssuesEvent(event: any) {
   }
 }
 
-async function handleIssueCommentEvent(event: any) {
+async function handleIssueCommentEvent(event: any, prisma: any) {
   const repository = event.repository.full_name;
   const comment = event.comment;
   const action = event.action;
@@ -221,7 +229,7 @@ async function handleIssueCommentEvent(event: any) {
   }
 }
 
-async function handleCreateEvent(event: any) {
+async function handleCreateEvent(event: any, prisma: any) {
   const repository = event.repository.full_name;
   const refType = event.ref_type; // branch, tag, etc.
 

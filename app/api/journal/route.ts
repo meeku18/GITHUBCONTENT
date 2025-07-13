@@ -1,16 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
+    // Skip database operations during build time or when DATABASE_URL is not available
+    if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+      return NextResponse.json(
+        { error: 'Service temporarily unavailable' },
+        { status: 503 }
+      );
+    }
+
+    // Skip during build time to prevent static generation issues
+    if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE === 'phase-production-build') {
+      return NextResponse.json({
+        entries: [],
+        total: 0
+      });
+    }
+
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    // Dynamically import prisma to avoid build-time issues
+    const { prisma } = await import('@/lib/prisma');
+
+    // Check if prisma is available
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
       );
     }
 
