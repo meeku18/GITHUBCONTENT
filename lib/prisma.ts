@@ -4,14 +4,9 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Check if we're in build time
+// Only use the mock during the build phase
 const isBuildTime = () => {
-  return (
-    process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL ||
-    process.env.VERCEL_ENV === 'production' && !process.env.DATABASE_URL ||
-    process.env.NODE_ENV === 'production' && process.env.VERCEL === '1' ||
-    process.env.NEXT_PHASE === 'phase-production-build'
-  );
+  return process.env.NEXT_PHASE === 'phase-production-build';
 };
 
 // Create a mock Prisma client for build time
