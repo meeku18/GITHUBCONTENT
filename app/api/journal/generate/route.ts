@@ -48,12 +48,12 @@ export async function POST(request: NextRequest) {
 
     if (type === 'daily') {
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      filteredActivities = activities.filter(activity => 
+      filteredActivities = activities.filter((activity: any) => 
         new Date(activity.createdAt) >= yesterday
       );
     } else if (type === 'weekly') {
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filteredActivities = activities.filter(activity => 
+      filteredActivities = activities.filter((activity: any) => 
         new Date(activity.createdAt) >= weekAgo
       );
     }

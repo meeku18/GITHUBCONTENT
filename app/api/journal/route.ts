@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { handleBuildTime } from '@/lib/build-utils';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Handle build-time scenarios
@@ -32,7 +35,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform entries to match frontend interface
-    const transformedEntries = entries.map(entry => ({
+    const transformedEntries = entries.map((entry: any) => ({
       id: entry.id,
       type: entry.type as 'daily' | 'weekly',
       content: entry.content,

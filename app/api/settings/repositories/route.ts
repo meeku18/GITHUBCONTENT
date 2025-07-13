@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         trackedRepos.push(repository);
       }
     } else {
-      trackedRepos = trackedRepos.filter(repo => repo !== repository);
+      trackedRepos = trackedRepos.filter((repo: any) => repo !== repository);
     }
 
     // Update user settings

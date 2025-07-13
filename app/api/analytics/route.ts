@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { handleBuildTime } from '@/lib/build-utils';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Handle build-time scenarios
@@ -64,7 +67,7 @@ export async function GET(request: NextRequest) {
         break;
     }
 
-    const filteredActivities = activities.filter(activity => 
+    const filteredActivities = activities.filter((activity: any) => 
       new Date(activity.createdAt) >= startDate
     );
 

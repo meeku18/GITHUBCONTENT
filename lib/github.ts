@@ -217,7 +217,7 @@ export class GitHubService {
       select: { url: true }
     });
 
-    const existingUrls = new Set(existingActivities.map(a => a.url));
+    const existingUrls = new Set(existingActivities.map((a: any) => a.url));
 
     const newActivities = activities.filter(activity => !existingUrls.has(activity.url));
 
