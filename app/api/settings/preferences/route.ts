@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,15 +11,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
-      );
-    }
-
-    // Dynamically import prisma to avoid build-time issues
-    const { prisma } = await import('@/lib/prisma');
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
       );
     }
 
@@ -103,15 +95,6 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Dynamically import prisma to avoid build-time issues
-    const { prisma } = await import('@/lib/prisma');
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      );
-    }
-
     // Update or create user settings
     const userSettings = await prisma.userSettings.upsert({
       where: { userId: session.user.id },
@@ -138,7 +121,19 @@ export async function PUT(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ success: true, userSettings });
+    // Update user's public profile setting
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: {
+        isPublic: settings.isPublic
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Settings updated successfully',
+      settings: userSettings
+    });
 
   } catch (error) {
     console.error('Error updating preferences:', error);

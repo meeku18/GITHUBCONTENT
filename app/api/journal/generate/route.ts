@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { GitHubService } from '@/lib/github';
 
 export async function POST(request: NextRequest) {
@@ -20,17 +21,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid summary type' },
         { status: 400 }
-      );
-    }
-
-    // Dynamically import prisma to avoid build-time issues
-    const { prisma } = await import('@/lib/prisma');
-
-    // Check if prisma is available
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
       );
     }
 

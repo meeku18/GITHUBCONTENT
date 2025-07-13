@@ -5,7 +5,7 @@ import { prisma } from "./prisma"
 
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
-  adapter: prisma ? PrismaAdapter(prisma) : undefined,
+  adapter: PrismaAdapter(prisma),
   providers: [
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID || "",
@@ -42,7 +42,7 @@ export const authOptions: NextAuthOptions = {
     },
 
     async signIn({ user, account, profile }) {
-      if (account?.provider === "github" && profile && prisma) {
+      if (account?.provider === "github" && profile) {
         try {
           // Store additional GitHub info
           await prisma.user.update({

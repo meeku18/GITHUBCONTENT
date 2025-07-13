@@ -1,24 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { handleBuildTime } from '@/lib/build-utils';
 
 export async function GET(request: NextRequest) {
   try {
-    // Skip database operations during build time or when DATABASE_URL is not available
-    if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
-      return NextResponse.json(
-        { error: 'Service temporarily unavailable' },
-        { status: 503 }
-      );
-    }
-
-    // Skip during build time to prevent static generation issues
-    if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE === 'phase-production-build') {
-      return NextResponse.json(
-        { activities: [], total: 0 },
-        { status: 200 }
-      );
-    }
+    // Handle build-time scenarios
+    const buildTimeResponse = handleBuildTime();
+    if (buildTimeResponse) return buildTimeResponse;
 
     const session = await getServerSession(authOptions);
     
@@ -31,14 +20,6 @@ export async function GET(request: NextRequest) {
 
     // Dynamically import prisma to avoid build-time issues
     const { prisma } = await import('@/lib/prisma');
-
-    // Check if prisma is available
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      );
-    }
 
     // Get user's activities from database
     const activities = await prisma.gitHubActivity.findMany({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
@@ -17,17 +18,6 @@ export async function POST(
     }
 
     const { id } = params;
-
-    // Dynamically import prisma to avoid build-time issues
-    const { prisma } = await import('@/lib/prisma');
-
-    // Check if prisma is available
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      );
-    }
 
     // Update the summary to mark it as published
     const updatedSummary = await prisma.summary.update({
